@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.Settings;
 import androidx.fragment.app.FragmentActivity;
 import android.os.Bundle;
@@ -38,6 +39,8 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -52,14 +55,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 
-public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback  {
 
         private GoogleMap mMap;
 
         private static final int CHECK_SETTINGS_CODE = 111;
         private static final int REQUEST_LOCATION_PERMISSION = 222 ;
 
-
+        private Polyline currentPolyline;
 
         private FusedLocationProviderClient fusedLocationClient;
         private SettingsClient settingsClient;
@@ -113,6 +116,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
             startLocationUpdates();
 
         }
+
 
         private void signOutDriver() {
 
@@ -318,9 +322,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         }
 
         private void updateLocationUi() {
-
-
-
 
             if (currentLocation != null) {
 

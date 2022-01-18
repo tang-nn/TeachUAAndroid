@@ -5,8 +5,10 @@
 
 
 
-
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        tools:ignore="CoarseFineLocation" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:allowBackup="true"
@@ -24,9 +26,20 @@
              sign the APK for publishing.
              You can define the keys for the debug and release targets in src/debug/ and src/release/.
         -->
+<!--        <meta-data-->
+<!--            android:name="com.google.android.gms.version"-->
+<!--            android:value="@string/google_maps_key" />-->
+
+
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
+            android:value="@string/google_maps_key_api" />
+        <!-- Don't use my api key, it will not work for you. тут новий ключ зверху-->
+
+<!--        <meta-data-->
+<!--            android:name="com.google.android.geo.API_KEY"-->
+<!--            android:value=  "@string/google_maps_key" />-->
 
         <activity
             android:name=".DriverMapsActivity"
@@ -34,11 +47,12 @@
         <activity
             android:name=".PassengerMapsActivity"
             android:label="@string/title_activity_passenger_maps" />
-        <activity android:name=".PassengerSignInActivity" />
         <activity android:name=".DriverSignInActivity" />
+        <activity android:name=".PassengerSignInActivity" />
         <activity android:name=".ChooseModeActivity" />
         <activity android:name=".SplashScreenActivity"
-            tools:ignore="IntentFilterExportedReceiver">
+            android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

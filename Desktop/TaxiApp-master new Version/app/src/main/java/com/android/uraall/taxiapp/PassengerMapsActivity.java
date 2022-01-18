@@ -1,17 +1,37 @@
 package com.android.uraall.taxiapp;
 
+
+import static android.content.ContentValues.TAG;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+
+
+import com.directions.route.AbstractRouting;
+import com.directions.route.Routing;
+import com.directions.route.RoutingListener;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.model.ButtCap;
+import com.google.android.gms.maps.model.JointType;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.provider.Settings;
@@ -21,6 +41,8 @@ import android.widget.Button;
 import android.widget.Toast;
 
 //import com.firebase.geofire.BuildConfig;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.firebase.BuildConfig;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
@@ -49,6 +71,7 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -56,16 +79,29 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.squareup.okhttp.internal.http.RouteException;
 
+
+import java.util.ArrayList;
 import java.util.List;
 
-public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback {
+
+import io.reactivex.SingleObserver;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+
+
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
+import retrofit2.Retrofit;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
+import retrofit2.converter.gson.GsonConverterFactory;
+
+public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener {
 
     private GoogleMap mMap;
 
     private static final int CHECK_SETTINGS_CODE = 111;
-    private static final int REQUEST_LOCATION_PERMISSION = 222 ;
-
+    private static final int REQUEST_LOCATION_PERMISSION = 222;
 
 
     private FusedLocationProviderClient fusedLocationClient;
@@ -89,10 +125,44 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private String nearestDriverId;
     private Marker driverMarker;
 
+
+    private PolylineOptions polylineOptions;
+    private AppIntefrace appIntefrace;
+    private List<LatLng> polylinelist;
+    private LatLng origion, dest;
+    private String st1;
+    private String st2;
+    private String st3;
+    private String st4;
+
+
+    //current and destination location objects
+    Location myLocation = null;
+    Location destinationLocation = null;
+    protected LatLng start = null;
+    protected LatLng end = null;
+
+    //to get location permissions.
+    private final static int LOCATION_REQUEST_CODE = 23;
+    boolean locationPermission = false;
+
+    //polyline object
+    private List<Polyline> polylines = null;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_passenger_maps);
+
+        Retrofit retrofit = new Retrofit.Builder().addConverterFactory(GsonConverterFactory.create())
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+                .baseUrl("https://maps.googleapis.com/").build();
+
+        appIntefrace = retrofit.create(AppIntefrace.class);
+
+        requestPermision();
+
 
         auth = FirebaseAuth.getInstance();
         currentUser = auth.getCurrentUser();
@@ -101,8 +171,9 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         signOutButton = findViewById(R.id.signOutButton);
         bookTaxiButton = findViewById(R.id.bookTaxiButton);
 
-        driversGeoFire = FirebaseDatabase.getInstance().getReference()
-                .child("driversGeoFire");
+        driversGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("driversGeoFires");
+
 
         signOutButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -141,7 +212,202 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
     }
 
+
+    private void requestPermision() {
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                    LOCATION_REQUEST_CODE);
+        } else {
+            locationPermission = true;
+        }
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case LOCATION_REQUEST_CODE: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    //if permission granted.
+                    locationPermission = true;
+                    getMyLocation();
+
+                } else {
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+        }
+    }
+
+
+    private void getMyLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        mMap.setMyLocationEnabled(true);
+        mMap.setOnMyLocationChangeListener(new GoogleMap.OnMyLocationChangeListener() {
+            @Override
+            public void onMyLocationChange(Location location) {
+
+                myLocation=location;
+                LatLng ltlng=new LatLng(location.getLatitude(),location.getLongitude());
+                CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(
+                        ltlng, 16f);
+                mMap.animateCamera(cameraUpdate);
+            }
+        });
+
+        //get destination location when user click on map
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+
+                end=latLng;
+
+                mMap.clear();
+
+                start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+                //start route finding
+                Findroutes(start,end);
+            }
+        });
+
+    }
+
+
+
+    // function to find Routes.
+    public void Findroutes(LatLng Start, LatLng End)
+    {
+        if(Start==null || End==null) {
+            Toast.makeText(PassengerMapsActivity.this,"Unable to get location", Toast.LENGTH_LONG).show();
+        }
+        else
+        {
+
+            Routing routing = new Routing.Builder()
+                    .travelMode(AbstractRouting.TravelMode.DRIVING)
+                    .withListener(this)
+                    .alternativeRoutes(true)
+                    .waypoints(Start, End)
+                    .key("AIzaSyCE5hI39arZzUDQcnA6b-x09sRxUoezhBc")  //also define your api key here.
+                    .build();
+            routing.execute();
+        }
+    }
+
+    //Routing call back functions.
+
+
+    @Override
+    public void onRoutingFailure(com.directions.route.RouteException e) {
+        View parentLayout = findViewById(android.R.id.content);
+        Snackbar snackbar= Snackbar.make(parentLayout, e.toString(), Snackbar.LENGTH_LONG);
+        snackbar.show();
+        //        Findroutes(start,end);
+    }
+
+    @Override
+    public void onRoutingStart() {
+        Toast.makeText(PassengerMapsActivity.this,"Finding Route...",Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onRoutingSuccess(ArrayList<com.directions.route.Route> route, int shortestRouteIndex) {
+        CameraUpdate center = CameraUpdateFactory.newLatLng(start);
+        CameraUpdate zoom = CameraUpdateFactory.zoomTo(16);
+        if(polylines!=null) {
+            polylines.clear();
+        }
+        PolylineOptions polyOptions = new PolylineOptions();
+        LatLng polylineStartLatLng=null;
+        LatLng polylineEndLatLng=null;
+
+
+        polylines = new ArrayList<>();
+        //add route(s) to the map using polyline
+        for (int i = 0; i <route.size(); i++) {
+
+            if(i==shortestRouteIndex)
+            {
+                polyOptions.color(getResources().getColor(R.color.colorPrimary));
+                polyOptions.width(7);
+                polyOptions.addAll(route.get(shortestRouteIndex).getPoints());
+                Polyline polyline = mMap.addPolyline(polyOptions);
+                polylineStartLatLng=polyline.getPoints().get(0);
+                int k=polyline.getPoints().size();
+                polylineEndLatLng=polyline.getPoints().get(k-1);
+                polylines.add(polyline);
+
+            }
+            else {
+
+            }
+
+        }
+        //Add Marker on route starting position
+        MarkerOptions startMarker = new MarkerOptions();
+        startMarker.position(polylineStartLatLng);
+        startMarker.title("My Location");
+        mMap.addMarker(startMarker);
+
+        //Add Marker on route ending position
+        MarkerOptions endMarker = new MarkerOptions();
+        endMarker.position(polylineEndLatLng);
+        endMarker.title("Destination");
+        mMap.addMarker(endMarker);
+    }
+
+
+
+    @Override
+    public void onRoutingCancelled() {
+        Findroutes(start,end);
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Findroutes(start,end);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     private void gettingNearestTaxi() {
+
+
 
 
         GeoFire geoFire = new GeoFire(driversGeoFire);
@@ -160,7 +426,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
                     isDriverFound = true;
                     nearestDriverId = key;
-                    
+
                     getNearestDriverLocation();
 
                 }
@@ -201,8 +467,8 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
         bookTaxiButton.setText("Getting your driver location...");
 
-        nearestDriverLocation = FirebaseDatabase.getInstance().getReference()
-                .child("driversGeoFire").child(nearestDriverId).child("l");
+        nearestDriverLocation = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("driversGeoFires").child(nearestDriverId).child("l");
 
         nearestDriverLocation.addValueEventListener(new ValueEventListener() {
             @Override
@@ -215,12 +481,15 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
                     double latitude = 0;
                     double longitude = 0;
+                    String res1 = "";
+                    String res2 = "";
 
                     if (driverLocationParameters.get(0) != null) {
 
                         latitude = Double.parseDouble(
                                 driverLocationParameters.get(0).toString()
                         );
+                        res1 = driverLocationParameters.get(0).toString();
 
                     }
 
@@ -229,6 +498,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                         longitude = Double.parseDouble(
                                 driverLocationParameters.get(1).toString()
                         );
+                        res2 = driverLocationParameters.get(1).toString();
 
                     }
 
@@ -251,8 +521,29 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
                     driverMarker = mMap.addMarker(
                             new MarkerOptions().position(driverLatLng)
-                            .title("Your driver is here")
+                                    .title("Your driver is here")
                     );
+
+//-----------------------------------------------------------------------------------------
+
+                    if (currentLocation != null) {
+
+                        LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
+                                currentLocation.getLongitude());
+
+                        st1 = String.valueOf(currentLocation.getLatitude());
+                        st2 = String.valueOf(currentLocation.getLongitude());
+
+                        dest = driverLatLng;
+                        origion = passengerLocation;
+                        st3 = res1;
+                        st4 = res2;
+
+                      getDirection(st1 + "," + st2, st3 + "," + st4);
+
+                    }
+
+//-----------------------------------------------------------------------------------------
 
                 }
 
@@ -269,7 +560,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private void signOutPassenger() {
 
         String passengerUserId = currentUser.getUid();
-        DatabaseReference passengers = FirebaseDatabase.getInstance()
+        DatabaseReference passengers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
                 .getReference()
                 .child("passengers");
 
@@ -306,6 +597,17 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                     currentLocation.getLongitude());
             mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
+            origion = passengerLocation;
+            mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+            mMap.setTrafficEnabled(true);
+
+
+
+
+        }
+
+        if(locationPermission) {
+            getMyLocation();
         }
     }
 
@@ -474,9 +776,9 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
             mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
 
             String passengerUserId = currentUser.getUid();
-            DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance().getReference()
+            DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
                     .child("passengersGeoFire");
-            DatabaseReference passengers = FirebaseDatabase.getInstance().getReference()
+            DatabaseReference passengers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
                     .child("passengers");
             passengers.setValue(true);
 
@@ -574,47 +876,49 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
 
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_LOCATION_PERMISSION) {
 
-            if (grantResults.length <= 0) {
-                Log.d("onRequestPermissions",
-                        "Request was cancelled");
-            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (isLocationUpdatesActive) {
-                    startLocationUpdates();
-                }
-            } else {
-                showSnackBar(
-                        "Turn on location on settings",
-                        "Settings",
-                        new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                Intent intent = new Intent();
-                                intent.setAction(
-                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                Uri uri = Uri.fromParts(
-                                        "package",
-                                        BuildConfig.APPLICATION_ID,
-                                        null
-                                );
-                                intent.setData(uri);
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-                            }
-                        }
-                );
-            }
-
-        }
-
-    }
+//    @Override
+//    public void onRequestPermissionsResult(int requestCode,
+//                                           @NonNull String[] permissions,
+//                                           @NonNull int[] grantResults) {
+//
+//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+//        if (requestCode == REQUEST_LOCATION_PERMISSION) {
+//
+//            if (grantResults.length <= 0) {
+//                Log.d("onRequestPermissions",
+//                        "Request was cancelled");
+//            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                if (isLocationUpdatesActive) {
+//                    startLocationUpdates();
+//                }
+//            } else {
+//                showSnackBar(
+//                        "Turn on location on settings",
+//                        "Settings",
+//                        new View.OnClickListener() {
+//                            @Override
+//                            public void onClick(View v) {
+//                                Intent intent = new Intent();
+//                                intent.setAction(
+//                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+//                                Uri uri = Uri.fromParts(
+//                                        "package",
+//                                        BuildConfig.APPLICATION_ID,
+//                                        null
+//                                );
+//                                intent.setData(uri);
+//                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//                                startActivity(intent);
+//                            }
+//                        }
+//                );
+//            }
+//
+//        }
+//
+//    }
 
     private boolean checkLocationPermission() {
 
@@ -623,4 +927,82 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         return permissionState == PackageManager.PERMISSION_GRANTED;
 
     }
+
+
+        private void getDirection(String origin, String destination){
+          appIntefrace.getDirection("driving", "less driving", origin, destination,
+                  getString(R.string.google_maps_key_api)
+          ).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
+                  .subscribe(new SingleObserver<Result>() {
+                      @Override
+                      public void onSubscribe(@NonNull Disposable d) {
+
+                      }
+
+                      @Override
+                      public void onSuccess(@NonNull Result result) {
+
+
+                          polylinelist = new ArrayList<>();
+                            List<Route> routeList = result.getRoutes();
+                            for(Route route : routeList){
+                                String polyline = route.getOverviewPolyline().getPoints();
+                                polylinelist.addAll(decodePoly(polyline));
+                            }
+                          polylineOptions = new PolylineOptions();
+                          polylineOptions.color(ContextCompat.getColor(getApplicationContext(),
+                                  R.color.colorPrimary));
+                          polylineOptions.width(10);
+                          polylineOptions.startCap( new ButtCap());
+                          polylineOptions.jointType(JointType.ROUND);
+                          polylineOptions.addAll(polylinelist);
+                          mMap.addPolyline(polylineOptions);
+                          LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                          builder.include(origion);
+                          builder.include(dest);
+                          mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(),
+                                  100));
+                      }
+
+                      @Override
+                      public void onError(@NonNull Throwable e) {
+
+                      }
+                  });
+    }
+
+    private List<LatLng> decodePoly(String encoded) {
+
+        List<LatLng> poly = new ArrayList<>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((((double) lat / 1E5)),
+                    (((double) lng / 1E5)));
+            poly.add(p);
+        }
+
+        return poly;
+    }
+
 }
