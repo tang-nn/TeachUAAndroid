@@ -1,21 +1,20 @@
 package com.android.uraall.taxiapp;
 
-
-import static android.content.ContentValues.TAG;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
 
+import androidx.fragment.app.FragmentActivity;
 
 import com.directions.route.AbstractRouting;
 import com.directions.route.Routing;
 import com.directions.route.RoutingListener;
+
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.model.ButtCap;
 import com.google.android.gms.maps.model.JointType;
@@ -23,31 +22,35 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import android.Manifest;
+
 import android.app.Activity;
-import android.content.Context;
+
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
+
 import android.location.Location;
+
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
+
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
-//import com.firebase.geofire.BuildConfig;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.firebase.BuildConfig;
+
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
+
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -65,13 +68,13 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+
 import com.google.android.material.snackbar.Snackbar;
-import com.google.firebase.FirebaseApp;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -79,24 +82,24 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.squareup.okhttp.internal.http.RouteException;
 
-
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Locale;
 
 import io.reactivex.SingleObserver;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 
-
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
+
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener {
+
 
     private GoogleMap mMap;
 
@@ -134,8 +137,10 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private String st2;
     private String st3;
     private String st4;
+    private int cameraIncrement;
+    private ImageButton locationButton;
 
-
+    Polyline polyline;
     //current and destination location objects
     Location myLocation = null;
     Location destinationLocation = null;
@@ -170,6 +175,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         settingsButton = findViewById(R.id.settingsButton);
         signOutButton = findViewById(R.id.signOutButton);
         bookTaxiButton = findViewById(R.id.bookTaxiButton);
+        locationButton = findViewById(R.id.locationButton);
 
         driversGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
                 .child("driversGeoFires");
@@ -194,6 +200,17 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
             }
         });
 
+        locationButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                LatLng ltlng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+
+                CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(
+                        ltlng, 17f);
+
+                mMap.animateCamera(cameraUpdate);
+            }
+        });
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -263,41 +280,43 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
             @Override
             public void onMyLocationChange(Location location) {
 
-                myLocation=location;
-                LatLng ltlng=new LatLng(location.getLatitude(),location.getLongitude());
+                myLocation = location;
+                LatLng ltlng = new LatLng(location.getLatitude(), location.getLongitude());
                 CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(
                         ltlng, 16f);
-                mMap.animateCamera(cameraUpdate);
+
+                if (cameraIncrement == 0) {
+                    mMap.animateCamera(cameraUpdate);
+                }
+                cameraIncrement++;
             }
+
+
         });
 
         //get destination location when user click on map
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-            @Override
-            public void onMapClick(LatLng latLng) {
-
-                end=latLng;
-
-                mMap.clear();
-
-                start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
-                //start route finding
-                Findroutes(start,end);
-            }
-        });
+//        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+//            @Override
+//            public void onMapClick(LatLng latLng) {
+//
+//                end = latLng;
+//
+//                mMap.clear();
+//
+//                start = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
+//                //start route finding
+//                Findroutes(start, end);
+//            }
+//        });
 
     }
 
 
-
     // function to find Routes.
-    public void Findroutes(LatLng Start, LatLng End)
-    {
-        if(Start==null || End==null) {
-            Toast.makeText(PassengerMapsActivity.this,"Unable to get location", Toast.LENGTH_LONG).show();
-        }
-        else
-        {
+    public void Findroutes(LatLng Start, LatLng End) {
+        if (Start == null || End == null) {
+            Toast.makeText(PassengerMapsActivity.this, "Unable to get location", Toast.LENGTH_LONG).show();
+        } else {
 
             Routing routing = new Routing.Builder()
                     .travelMode(AbstractRouting.TravelMode.DRIVING)
@@ -316,45 +335,43 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     @Override
     public void onRoutingFailure(com.directions.route.RouteException e) {
         View parentLayout = findViewById(android.R.id.content);
-        Snackbar snackbar= Snackbar.make(parentLayout, e.toString(), Snackbar.LENGTH_LONG);
+        Snackbar snackbar = Snackbar.make(parentLayout, e.toString(), Snackbar.LENGTH_LONG);
         snackbar.show();
         //        Findroutes(start,end);
     }
 
     @Override
     public void onRoutingStart() {
-        Toast.makeText(PassengerMapsActivity.this,"Finding Route...",Toast.LENGTH_LONG).show();
+        Toast.makeText(PassengerMapsActivity.this, "Finding Route...", Toast.LENGTH_LONG).show();
     }
 
     @Override
     public void onRoutingSuccess(ArrayList<com.directions.route.Route> route, int shortestRouteIndex) {
         CameraUpdate center = CameraUpdateFactory.newLatLng(start);
         CameraUpdate zoom = CameraUpdateFactory.zoomTo(16);
-        if(polylines!=null) {
+        if (polylines != null) {
             polylines.clear();
         }
         PolylineOptions polyOptions = new PolylineOptions();
-        LatLng polylineStartLatLng=null;
-        LatLng polylineEndLatLng=null;
+        LatLng polylineStartLatLng = null;
+        LatLng polylineEndLatLng = null;
 
 
         polylines = new ArrayList<>();
         //add route(s) to the map using polyline
-        for (int i = 0; i <route.size(); i++) {
+        for (int i = 0; i < route.size(); i++) {
 
-            if(i==shortestRouteIndex)
-            {
+            if (i == shortestRouteIndex) {
                 polyOptions.color(getResources().getColor(R.color.colorPrimary));
                 polyOptions.width(7);
                 polyOptions.addAll(route.get(shortestRouteIndex).getPoints());
                 Polyline polyline = mMap.addPolyline(polyOptions);
-                polylineStartLatLng=polyline.getPoints().get(0);
-                int k=polyline.getPoints().size();
-                polylineEndLatLng=polyline.getPoints().get(k-1);
+                polylineStartLatLng = polyline.getPoints().get(0);
+                int k = polyline.getPoints().size();
+                polylineEndLatLng = polyline.getPoints().get(k - 1);
                 polylines.add(polyline);
 
-            }
-            else {
+            } else {
 
             }
 
@@ -373,41 +390,18 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     }
 
 
-
     @Override
     public void onRoutingCancelled() {
-        Findroutes(start,end);
+        Findroutes(start, end);
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Findroutes(start,end);
+        Findroutes(start, end);
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private void gettingNearestTaxi() {
-
-
 
 
         GeoFire geoFire = new GeoFire(driversGeoFire);
@@ -515,8 +509,12 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                     float distanceToDriver =
                             driverLocation.distanceTo(currentLocation);
 
+                    float distunceResult = distanceToDriver / 1000;
+                    String kmResult = NumberFormat.getNumberInstance(Locale.US).format(distunceResult);
+
+
                     bookTaxiButton.setText("Distance to driver: " +
-                            distanceToDriver);
+                            kmResult + " km");
 
 
                     driverMarker = mMap.addMarker(
@@ -539,7 +537,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                         st3 = res1;
                         st4 = res2;
 
-                      getDirection(st1 + "," + st2, st3 + "," + st4);
+                        getDirection(st1 + "," + st2, st3 + "," + st4);
 
                     }
 
@@ -590,23 +588,26 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+
+        mMap.setPadding(30, 30, 30, 160);
+        mMap.getUiSettings().setMyLocationButtonEnabled(true);
+        mMap.getUiSettings().setMapToolbarEnabled(true);
+        //mMap.getUiSettings().setCompassEnabled(true);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setRotateGesturesEnabled(false);
+
+
         if (currentLocation != null) {
 
             // Add a marker in Sydney and move the camera
-            LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
+            LatLng driverLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
-            origion = passengerLocation;
-            mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-            mMap.setTrafficEnabled(true);
-
-
-
-
+            mMap.addMarker(new MarkerOptions().position(driverLocation).title("Driver location"));
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(driverLocation));
         }
 
-        if(locationPermission) {
+        if (locationPermission) {
             getMyLocation();
         }
     }
@@ -771,8 +772,8 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
             LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
+            //   mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
+            //    mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
             mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
 
             String passengerUserId = currentUser.getUid();
@@ -877,7 +878,6 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     }
 
 
-
 //    @Override
 //    public void onRequestPermissionsResult(int requestCode,
 //                                           @NonNull String[] permissions,
@@ -929,46 +929,46 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     }
 
 
-        private void getDirection(String origin, String destination){
-          appIntefrace.getDirection("driving", "less driving", origin, destination,
-                  getString(R.string.google_maps_key_api)
-          ).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                  .subscribe(new SingleObserver<Result>() {
-                      @Override
-                      public void onSubscribe(@NonNull Disposable d) {
+    private void getDirection(String origin, String destination) {
+        appIntefrace.getDirection("driving", "less driving", origin, destination,
+                getString(R.string.google_maps_key_api)
+        ).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new SingleObserver<Result>() {
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
 
-                      }
+                    }
 
-                      @Override
-                      public void onSuccess(@NonNull Result result) {
+                    @Override
+                    public void onSuccess(@NonNull Result result) {
 
 
-                          polylinelist = new ArrayList<>();
-                            List<Route> routeList = result.getRoutes();
-                            for(Route route : routeList){
-                                String polyline = route.getOverviewPolyline().getPoints();
-                                polylinelist.addAll(decodePoly(polyline));
-                            }
-                          polylineOptions = new PolylineOptions();
-                          polylineOptions.color(ContextCompat.getColor(getApplicationContext(),
-                                  R.color.colorPrimary));
-                          polylineOptions.width(10);
-                          polylineOptions.startCap( new ButtCap());
-                          polylineOptions.jointType(JointType.ROUND);
-                          polylineOptions.addAll(polylinelist);
-                          mMap.addPolyline(polylineOptions);
-                          LatLngBounds.Builder builder = new LatLngBounds.Builder();
-                          builder.include(origion);
-                          builder.include(dest);
-                          mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(),
-                                  100));
-                      }
+                        polylinelist = new ArrayList<>();
+                        List<Route> routeList = result.getRoutes();
+                        for (Route route : routeList) {
+                            String polyline = route.getOverviewPolyline().getPoints();
+                            polylinelist.addAll(decodePoly(polyline));
+                        }
+                        polylineOptions = new PolylineOptions();
+                        polylineOptions.color(ContextCompat.getColor(getApplicationContext(),
+                                R.color.colorPrimary));
+                        polylineOptions.width(10);
+                        polylineOptions.startCap(new ButtCap());
+                        polylineOptions.jointType(JointType.ROUND);
+                        polylineOptions.addAll(polylinelist);
+                        mMap.addPolyline(polylineOptions);
+                        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                        builder.include(origion);
+                        builder.include(dest);
+                        //  mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(),
+                        //           100));
+                    }
 
-                      @Override
-                      public void onError(@NonNull Throwable e) {
+                    @Override
+                    public void onError(@NonNull Throwable e) {
 
-                      }
-                  });
+                    }
+                });
     }
 
     private List<LatLng> decodePoly(String encoded) {
