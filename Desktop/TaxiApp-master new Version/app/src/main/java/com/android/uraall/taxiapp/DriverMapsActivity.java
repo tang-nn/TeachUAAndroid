@@ -1,35 +1,27 @@
 package com.android.uraall.taxiapp;
 
 
-
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.net.Uri;
 import android.os.Looper;
-import android.os.PowerManager;
-import android.provider.Settings;
-
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
 import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.TextView;
 import android.widget.Toast;
-
 import com.directions.route.AbstractRouting;
 import com.directions.route.Routing;
 import com.directions.route.RoutingListener;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
-import com.firebase.geofire.GeoQuery;
-import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -63,20 +55,14 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
-
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+
 
 import io.reactivex.SingleObserver;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -86,8 +72,7 @@ import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener {
-
+public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener {
 
 
     private GoogleMap mMap;
@@ -95,7 +80,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     private static final int CHECK_SETTINGS_CODE = 111;
     private static final int REQUEST_LOCATION_PERMISSION = 222;
 
-
+    int deleteCount;
     private FusedLocationProviderClient fusedLocationClient;
     private SettingsClient settingsClient;
     private LocationRequest locationRequest;
@@ -117,6 +102,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     private String nearestDriverId;
     private Marker driverMarker;
 
+    private AlphaAnimation buttonClick = new AlphaAnimation(0.6F, 0.6F);
 
     private PolylineOptions polylineOptions;
     private AppIntefrace appIntefrace;
@@ -157,7 +143,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
         requestPermision();
 
-
         auth = FirebaseAuth.getInstance();
         currentUser = auth.getCurrentUser();
 
@@ -165,8 +150,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         signOutButton = findViewById(R.id.signOutButton);
         bookTaxiButton = findViewById(R.id.bookTaxiButton);
         locationButton = findViewById(R.id.locationButton);
-
-
 
 
         signOutButton.setOnClickListener(new View.OnClickListener() {
@@ -181,6 +164,8 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         locationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
+                locationButton.startAnimation(buttonClick);
                 LatLng ltlng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
 
                 CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(
@@ -367,12 +352,16 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     private void signOutPassenger() {
 
         String passengerUserId = currentUser.getUid();
-        DatabaseReference passengers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
+
+        DatabaseReference drivers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
                 .getReference()
                 .child("drivers");
+        DatabaseReference driversGeoFires = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
+                .getReference()
+                .child("driversGeoFires");
 
-        GeoFire geoFire = new GeoFire(passengers);
-        geoFire.removeLocation(passengerUserId);
+        drivers.removeValue();
+        driversGeoFires.removeValue();
 
         Intent intent = new Intent(DriverMapsActivity.this,
                 ChooseModeActivity.class);
@@ -397,9 +386,12 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
+
+        mMap.setOnInfoWindowClickListener(this);
+
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        mMap.setPadding(30, 30, 30, 160);
+        mMap.setPadding(30, 30, 30, 140);
         mMap.getUiSettings().setMyLocationButtonEnabled(true);
         mMap.getUiSettings().setMapToolbarEnabled(true);
         //mMap.getUiSettings().setCompassEnabled(true);
@@ -421,6 +413,26 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         }
     }
 
+    @Override
+    public void onInfoWindowClick(@NonNull Marker marker) {
+
+
+
+        if (deleteCount == 0) {
+            Toast.makeText(this, "You want remove this marker?, please click again", Toast.LENGTH_LONG).show();
+            deleteCount++;
+
+        } else {
+            //marker.remove();
+            Toast.makeText(this, "You remove this marker!", Toast.LENGTH_LONG).show();
+            deleteCount--;
+
+        }
+
+
+    }
+
+
     private void stopLocationUpdates() {
 
         if (!isLocationUpdatesActive) {
@@ -438,9 +450,8 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
     }
 
-    private void startLocationUpdates() {
 
-        isLocationUpdatesActive = true;
+    private void startLocationUpdates() {
 
 
         settingsClient.checkLocationSettings(locationSettingsRequest)
@@ -575,14 +586,21 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
     }
 
+
     private void updateLocationUi() {
+
 
         if (currentLocation != null) {
 
+            mMap.clear();
+
             LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
-            //   mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
-            //    mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
+
+
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
+            // mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
+
             mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Driver location"));
 
             String passengerUserId = currentUser.getUid();
@@ -598,6 +616,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         }
 
     }
+
 
     private void buildLocationRequest() {
 
@@ -687,7 +706,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     }
 
 
-
     private boolean checkLocationPermission() {
 
         int permissionState = ActivityCompat.checkSelfPermission(this,
@@ -772,7 +790,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
         return poly;
     }
-
 
 
 }

@@ -1,5 +1,7 @@
 package com.android.uraall.taxiapp;
 
+import static android.content.ContentValues.TAG;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -12,9 +14,11 @@ import com.directions.route.AbstractRouting;
 import com.directions.route.Routing;
 import com.directions.route.RoutingListener;
 
+
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 
+import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.model.ButtCap;
 import com.google.android.gms.maps.model.JointType;
@@ -25,6 +29,8 @@ import android.Manifest;
 
 import android.app.Activity;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
@@ -37,6 +43,8 @@ import android.os.Looper;
 
 import android.provider.Settings;
 import android.util.Log;
+
+import android.view.Gravity;
 import android.view.View;
 
 import android.widget.Button;
@@ -82,6 +90,9 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.maps.DirectionsApiRequest;
+import com.google.maps.GeoApiContext;
+import com.google.maps.model.DirectionsResult;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -94,11 +105,12 @@ import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 
+import retrofit2.Callback;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener {
+public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener,  GoogleMap.OnMarkerClickListener {
 
 
     private GoogleMap mMap;
@@ -127,7 +139,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private boolean isDriverFound = false;
     private String nearestDriverId;
     private Marker driverMarker;
-
+    private Marker mainMarker;
 
     private PolylineOptions polylineOptions;
     private AppIntefrace appIntefrace;
@@ -151,9 +163,13 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private final static int LOCATION_REQUEST_CODE = 23;
     boolean locationPermission = false;
 
+
+    private int countClick;
     //polyline object
     private List<Polyline> polylines = null;
-
+    private GeoApiContext mGeoApiContext;
+    private Marker mSelectedMarker = null;
+    private ArrayList<Marker> mTripMarkers = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -562,8 +578,17 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                 .getReference()
                 .child("passengers");
 
-        GeoFire geoFire = new GeoFire(passengers);
-        geoFire.removeLocation(passengerUserId);
+        DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
+                .getReference()
+                .child("passengersGeoFire");
+
+
+//        GeoFire geoFire = new GeoFire(passengers);
+////        geoFire.removeLocation(passengerUserId);
+
+        passengers.removeValue();
+        passengersGeoFire.removeValue();
+
 
         Intent intent = new Intent(PassengerMapsActivity.this,
                 ChooseModeActivity.class);
@@ -597,6 +622,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setRotateGesturesEnabled(false);
 
+        mMap.setOnMarkerClickListener((GoogleMap.OnMarkerClickListener) this);
 
         if (currentLocation != null) {
 
@@ -774,7 +800,8 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                     currentLocation.getLongitude());
             //   mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
             //    mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
-            mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
+            mainMarker = mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
+
 
             String passengerUserId = currentUser.getUid();
             DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
@@ -1005,4 +1032,89 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         return poly;
     }
 
+
+//-----------------------------------------------------------------------------------------------------
+
+
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+//        if(countClick == 0){
+//            marker.setTitle(marker.getTitle() + "If you want to delete this marker, " + "/n" +
+//                    "please click on marker again");
+//            countClick++;
+//        }
+//
+//        if(countClick > 0){
+//          //  onMarkerClick(marker);
+//        }
+
+
+    }
+
+    private void resetSelectedMarker() {
+        if (mSelectedMarker != null) {
+            mSelectedMarker.setVisible(true);
+            mSelectedMarker = null;
+            removeTripMarkers();
+        }
+    }
+
+    private void removeTripMarkers() {
+        for (Marker marker : mTripMarkers) {
+            marker.remove();
+        }
+    }
+
+
+    @Override
+    public boolean onMarkerClick(@NonNull Marker marker) {
+
+
+        if (countClick == 0) {
+
+            marker.setTitle(marker.getTitle());
+            marker.showInfoWindow();
+            Toast.makeText(getApplicationContext(), "If you want to delete this marker, " + "\n" +
+                    "please click on the marker again.",Toast.LENGTH_LONG).show();
+            countClick++;
+
+        } else {
+
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(PassengerMapsActivity.this);
+            builder.setMessage("Do you want to delete this marker?")
+                    .setCancelable(true)
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            resetSelectedMarker();
+                            mSelectedMarker = marker;
+                            mSelectedMarker.remove();
+                            dialog.dismiss();
+
+                            Toast toast = Toast.makeText(getApplicationContext(), "Marker removed.", Toast.LENGTH_LONG);
+                            toast.setGravity(Gravity.TOP | Gravity.CENTER, 20, 20);
+                            toast.show();
+                            countClick--;
+                        }
+                    })
+                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        public void onClick(final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            dialog.cancel();
+                            countClick--;
+                        }
+                    });
+            final AlertDialog alert = builder.create();
+            alert.show();
+            // return false;
+            return true;
+
+
+        }
+
+        return true;
+    }
+
 }
+
+
+//-----------------------------------------------------------------------------------------------------
