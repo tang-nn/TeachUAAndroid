@@ -5,57 +5,73 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-
     tools:context=".DriverMapsActivity">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/settingsButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@color/colorPrimary"
-            android:text="Settings"
-            android:textColor="@android:color/white" />
-
-        <Button
-            android:id="@+id/signOutButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@color/colorPrimary"
-            android:text="Sign Out"
-            android:textColor="@android:color/white" />
-
-    </LinearLayout>
 
 
     <fragment
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="48dp" />/>
+        android:layout_height="match_parent" />
+
+    <Button
+        android:id="@+id/settingsButton"
+        android:layout_width="165dp"
+        android:layout_height="45dp"
+        android:layout_marginLeft="29dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/rounded_button_to_maps"
+        android:paddingBottom="2dp"
+        android:text="Settings"
+        android:textAllCaps="false"
+        android:textColor="@color/colorWhite"
+        android:textSize="18sp" />
+
+
+    <Button
+        android:id="@+id/signOutButton"
+        android:layout_width="165dp"
+        android:layout_height="45dp"
+        android:layout_marginLeft="215dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/rounded_button_to_maps"
+        android:paddingBottom="2dp"
+        android:text="Sign Out"
+        android:textAllCaps="false"
+        android:textColor="@color/colorWhite"
+        android:textSize="18sp" />
+
+
     <ImageButton
         android:id="@+id/locationButton"
         android:layout_width="45dp"
         android:layout_height="40dp"
-        android:layout_alignParentTop="true"
         android:layout_alignParentRight="true"
-        android:layout_marginTop="68dp"
+        android:layout_alignParentBottom="true"
         android:layout_marginRight="22dp"
-        android:background="@android:color/transparent"
+        android:layout_marginBottom="250dp"
+        android:background="@drawable/rounded_gps_button"
+        android:radius="20dp"
         android:scaleType="fitCenter"
-        android:src="@drawable/new_2_location" />
+        android:src="@drawable/current_location_icon" />
 
 
-
-
-
+    <Button
+        android:id="@+id/passengerInfoText"
+        android:layout_width="355dp"
+        android:layout_height="50dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_centerInParent="true"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="35dp"
+        android:background="@drawable/rounded_button_to_maps"
+        android:paddingBottom="2dp"
+        android:text="No order yet"
+        android:textAllCaps="false"
+        android:textColor="@color/colorWhite"
+        android:textSize="19sp" />
 
 
 </RelativeLayout>

@@ -110,7 +110,7 @@ import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener,  GoogleMap.OnMarkerClickListener {
+public class PassengerMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener, GoogleMap.OnMarkerClickListener {
 
 
     private GoogleMap mMap;
@@ -118,7 +118,8 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private static final int CHECK_SETTINGS_CODE = 111;
     private static final int REQUEST_LOCATION_PERMISSION = 222;
 
-
+    private boolean booleanTaxiDriver = false;
+    private boolean clickBooleanButton = false;
     private FusedLocationProviderClient fusedLocationClient;
     private SettingsClient settingsClient;
     private LocationRequest locationRequest;
@@ -135,6 +136,8 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
     private DatabaseReference driversGeoFire;
     private DatabaseReference nearestDriverLocation;
+    private DatabaseReference booleanLocation;
+    private DatabaseReference infoFromDriver;
     private int searchRadius = 1;
     private boolean isDriverFound = false;
     private String nearestDriverId;
@@ -163,7 +166,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     private final static int LOCATION_REQUEST_CODE = 23;
     boolean locationPermission = false;
 
-
+    private Marker testMarker;
     private int countClick;
     //polyline object
     private List<Polyline> polylines = null;
@@ -208,10 +211,14 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         bookTaxiButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                booleanLocation = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                        .child("booleanPassengerLocation");
+                booleanLocation.setValue(true);
                 bookTaxiButton.setText("Getting your taxi...");
 
-                gettingNearestTaxi();
+                requestMethod();
+                booleanLocation.removeValue();
+
 
             }
         });
@@ -242,6 +249,45 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
         buildLocationSettingsRequest();
 
         startLocationUpdates();
+
+    }
+
+
+    public void requestMethod() {
+        infoFromDriver = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("requestFromPassenger");
+        infoFromDriver.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+
+                if (dataSnapshot.exists()) {
+                    // This method is called once with the initial value and again
+                    // whenever data at this location is updated.
+                    boolean value = dataSnapshot.getValue(Boolean.class);
+                    if (value == true) {
+
+                        bookTaxiButton.setText("Getting your driver...");
+                        gettingNearestTaxi();
+                        bookTaxiButton.setClickable(false);
+                        infoFromDriver.removeValue();
+
+                    } else if (value == false) {
+                        Toast.makeText(getApplicationContext(), "All drivers are busy.", Toast.LENGTH_LONG).show();
+                        bookTaxiButton.setText("Book Taxi");
+                        infoFromDriver.removeValue();
+
+                    }
+                }
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+
 
     }
 
@@ -310,20 +356,6 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
         });
 
-        //get destination location when user click on map
-//        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-//            @Override
-//            public void onMapClick(LatLng latLng) {
-//
-//                end = latLng;
-//
-//                mMap.clear();
-//
-//                start = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
-//                //start route finding
-//                Findroutes(start, end);
-//            }
-//        });
 
     }
 
@@ -583,15 +615,12 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                 .child("passengersGeoFire");
 
 
-//        GeoFire geoFire = new GeoFire(passengers);
-////        geoFire.removeLocation(passengerUserId);
-
         passengers.removeValue();
         passengersGeoFire.removeValue();
 
 
         Intent intent = new Intent(PassengerMapsActivity.this,
-                ChooseModeActivity.class);
+                Choose_2_layout.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                 Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
@@ -615,7 +644,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        mMap.setPadding(30, 30, 30, 160);
+        mMap.setPadding(30, 30, 45, 305);
         mMap.getUiSettings().setMyLocationButtonEnabled(true);
         mMap.getUiSettings().setMapToolbarEnabled(true);
         //mMap.getUiSettings().setCompassEnabled(true);
@@ -796,11 +825,26 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
         if (currentLocation != null) {
 
+
             LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
             //   mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
             //    mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
-            mainMarker = mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
+
+
+            mSelectedMarker = mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Passenger location"));
+            mTripMarkers.add(mSelectedMarker);
+
+
+            for (Marker marker : mTripMarkers) {
+                if (marker != null) {
+                    testMarker = marker;
+                }
+
+//                else {
+//                    testMarker.remove();
+//                }
+            }
 
 
             String passengerUserId = currentUser.getUid();
@@ -905,48 +949,6 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
     }
 
 
-//    @Override
-//    public void onRequestPermissionsResult(int requestCode,
-//                                           @NonNull String[] permissions,
-//                                           @NonNull int[] grantResults) {
-//
-//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-//        if (requestCode == REQUEST_LOCATION_PERMISSION) {
-//
-//            if (grantResults.length <= 0) {
-//                Log.d("onRequestPermissions",
-//                        "Request was cancelled");
-//            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//                if (isLocationUpdatesActive) {
-//                    startLocationUpdates();
-//                }
-//            } else {
-//                showSnackBar(
-//                        "Turn on location on settings",
-//                        "Settings",
-//                        new View.OnClickListener() {
-//                            @Override
-//                            public void onClick(View v) {
-//                                Intent intent = new Intent();
-//                                intent.setAction(
-//                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-//                                Uri uri = Uri.fromParts(
-//                                        "package",
-//                                        BuildConfig.APPLICATION_ID,
-//                                        null
-//                                );
-//                                intent.setData(uri);
-//                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-//                                startActivity(intent);
-//                            }
-//                        }
-//                );
-//            }
-//
-//        }
-//
-//    }
-
     private boolean checkLocationPermission() {
 
         int permissionState = ActivityCompat.checkSelfPermission(this,
@@ -985,6 +987,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                         polylineOptions.addAll(polylinelist);
                         mMap.addPolyline(polylineOptions);
                         LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
                         builder.include(origion);
                         builder.include(dest);
                         //  mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(),
@@ -1038,22 +1041,12 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
 
     @Override
     public void onInfoWindowClick(Marker marker) {
-//        if(countClick == 0){
-//            marker.setTitle(marker.getTitle() + "If you want to delete this marker, " + "/n" +
-//                    "please click on marker again");
-//            countClick++;
-//        }
-//
-//        if(countClick > 0){
-//          //  onMarkerClick(marker);
-//        }
-
 
     }
 
     private void resetSelectedMarker() {
         if (mSelectedMarker != null) {
-            mSelectedMarker.setVisible(true);
+            mSelectedMarker.setVisible(false);
             mSelectedMarker = null;
             removeTripMarkers();
         }
@@ -1075,7 +1068,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
             marker.setTitle(marker.getTitle());
             marker.showInfoWindow();
             Toast.makeText(getApplicationContext(), "If you want to delete this marker, " + "\n" +
-                    "please click on the marker again.",Toast.LENGTH_LONG).show();
+                    "please click on the marker again.", Toast.LENGTH_LONG).show();
             countClick++;
 
         } else {
@@ -1087,8 +1080,7 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
                     .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                         public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
                             resetSelectedMarker();
-                            mSelectedMarker = marker;
-                            mSelectedMarker.remove();
+
                             dialog.dismiss();
 
                             Toast toast = Toast.makeText(getApplicationContext(), "Marker removed.", Toast.LENGTH_LONG);
@@ -1107,7 +1099,6 @@ public class PassengerMapsActivity extends FragmentActivity implements OnMapRead
             alert.show();
             // return false;
             return true;
-
 
         }
 

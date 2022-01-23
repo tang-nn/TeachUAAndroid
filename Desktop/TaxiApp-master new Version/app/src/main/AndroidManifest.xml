@@ -3,10 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.android.uraall.taxiapp">
 
-
-
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
         tools:ignore="CoarseFineLocation" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -17,7 +16,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
+        <activity
+            android:name=".Choose_2_layout"
+            android:exported="false" />
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
              (See the file "res/values/google_maps_api.xml").
@@ -26,21 +27,15 @@
              sign the APK for publishing.
              You can define the keys for the debug and release targets in src/debug/ and src/release/.
         -->
-<!--        <meta-data-->
-<!--            android:name="com.google.android.gms.version"-->
-<!--            android:value="@string/google_maps_key" />-->
-
-
-
+        <!-- <meta-data -->
+        <!-- android:name="com.google.android.gms.version" -->
+        <!-- android:value="@string/google_maps_key" /> -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key_api" />
-        <!-- Don't use my api key, it will not work for you. тут новий ключ зверху-->
-
-<!--        <meta-data-->
-<!--            android:name="com.google.android.geo.API_KEY"-->
-<!--            android:value=  "@string/google_maps_key" />-->
-
+            android:value="@string/google_maps_key_api" /> <!-- Don't use my api key, it will not work for you. тут новий ключ зверху -->
+        <!-- <meta-data -->
+        <!-- android:name="com.google.android.geo.API_KEY" -->
+        <!-- android:value=  "@string/google_maps_key" /> -->
         <activity
             android:name=".DriverMapsActivity"
             android:label="@string/title_activity_driver_maps" />
@@ -50,9 +45,9 @@
         <activity android:name=".DriverSignInActivity" />
         <activity android:name=".PassengerSignInActivity" />
         <activity android:name=".ChooseModeActivity" />
-        <activity android:name=".SplashScreenActivity"
+        <activity
+            android:name=".SplashScreenActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

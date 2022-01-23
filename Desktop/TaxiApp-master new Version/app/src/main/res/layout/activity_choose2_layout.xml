@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/colorBackgroundActivity"
-    tools:context=".ChooseModeActivity">
+    tools:context=".Choose_2_layout">
 
 
     <LinearLayout
@@ -14,6 +14,7 @@
         android:layout_marginTop="7dp"
         android:orientation="vertical"
         tools:ignore="MissingConstraints">
+
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -74,30 +75,31 @@
 
             </LinearLayout>
 
+            <Button
+                android:id="@+id/passengerButton"
+                android:layout_width="300dp"
+                android:layout_height="50dp"
+                android:layout_marginTop="35dp"
+                android:background="@drawable/roundedbutton"
+                android:onClick="goToPassengerSignIn"
+                android:paddingBottom="2dp"
+                android:text="I’m a passenger"
+                android:textAllCaps="false"
+                android:textColor="@color/colorWhite"
+                android:textSize="19sp" />
 
-            <TextView
-                android:id="@+id/textDescription"
-                android:layout_width="350dp"
-                android:layout_height="match_parent"
-                android:layout_below="@id/imageWay"
-                android:layout_marginTop="28dp"
-                android:gravity="center"
-                android:text="Water taxis are available in Venice
-                             The average travel time is about 10 minutes
-                    and you have to pay about € 15."
+            <Button
+                android:id="@+id/driverButton"
+                android:layout_width="300dp"
+                android:layout_height="50dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/button_border"
+                android:onClick="goToDriverSignIn"
+                android:paddingBottom="2dp"
+                android:text="I’m a driver"
+                android:textAllCaps="false"
                 android:textColor="@color/colorWhiteGrey"
-                android:textSize="17sp" />
-
-            <TextView
-                android:id="@+id/textView"
-                android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_below="@id/imageWay"
-                android:layout_marginLeft="8dp"
-                android:gravity="center"
-                android:text="Loading..."
-                android:textColor="@color/colorWhiteGrey"
-                android:textSize="22sp" />
+                android:textSize="19sp" />
 
         </LinearLayout>
 

@@ -1,30 +1,66 @@
 package com.android.uraall.taxiapp;
 
+import static android.content.ContentValues.TAG;
 
-import android.Manifest;
-import android.app.Activity;
-import android.content.Intent;
-import android.content.IntentSender;
-import android.content.pm.PackageManager;
-import android.location.Location;
-import android.os.Looper;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
 import androidx.fragment.app.FragmentActivity;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.view.animation.AlphaAnimation;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.Toast;
+
 import com.directions.route.AbstractRouting;
 import com.directions.route.Routing;
 import com.directions.route.RoutingListener;
+
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.model.ButtCap;
+import com.google.android.gms.maps.model.JointType;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
+
+import android.Manifest;
+
+import android.app.Activity;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentSender;
+import android.content.pm.PackageManager;
+
+import android.location.Location;
+
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Looper;
+
+import android.provider.Settings;
+import android.util.Log;
+
+import android.view.Gravity;
+import android.view.View;
+
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
-import com.google.android.gms.common.ConnectionResult;
+import com.firebase.geofire.GeoQuery;
+import com.firebase.geofire.GeoQueryEventListener;
+
 import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -35,44 +71,49 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.location.SettingsClient;
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.ButtCap;
-import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.Polyline;
-import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+
 import com.google.android.material.snackbar.Snackbar;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
+import com.google.firebase.database.ValueEventListener;
+import com.google.maps.DirectionsApiRequest;
+import com.google.maps.GeoApiContext;
+import com.google.maps.model.DirectionsResult;
+
+import org.w3c.dom.Text;
+
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Locale;
 
 import io.reactivex.SingleObserver;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
+
+import retrofit2.Callback;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener {
+public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener, RoutingListener, GoogleMap.OnInfoWindowClickListener, GoogleMap.OnMarkerClickListener {
 
 
     private GoogleMap mMap;
@@ -80,7 +121,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     private static final int CHECK_SETTINGS_CODE = 111;
     private static final int REQUEST_LOCATION_PERMISSION = 222;
 
-    int deleteCount;
+
     private FusedLocationProviderClient fusedLocationClient;
     private SettingsClient settingsClient;
     private LocationRequest locationRequest;
@@ -90,19 +131,22 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
     private boolean isLocationUpdatesActive;
 
-    private Button settingsButton, signOutButton, bookTaxiButton;
+    private Button settingsButton, signOutButton;
+    private TextView passengerInfoText;
+
 
     private FirebaseAuth auth;
     private FirebaseUser currentUser;
 
-    private DatabaseReference driversGeoFire;
+    private DatabaseReference passengersGeoFire;
     private DatabaseReference nearestDriverLocation;
+    private DatabaseReference booleanPassengerValue;
+    private DatabaseReference requestFromPassenger;
     private int searchRadius = 1;
     private boolean isDriverFound = false;
     private String nearestDriverId;
     private Marker driverMarker;
-
-    private AlphaAnimation buttonClick = new AlphaAnimation(0.6F, 0.6F);
+    private Marker mainMarker;
 
     private PolylineOptions polylineOptions;
     private AppIntefrace appIntefrace;
@@ -126,9 +170,13 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     private final static int LOCATION_REQUEST_CODE = 23;
     boolean locationPermission = false;
 
+    private Marker testMarker;
+    private int countClick;
     //polyline object
     private List<Polyline> polylines = null;
-
+    private GeoApiContext mGeoApiContext;
+    private Marker mSelectedMarker = null;
+    private ArrayList<Marker> mTripMarkers = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,13 +191,17 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
         requestPermision();
 
+
         auth = FirebaseAuth.getInstance();
         currentUser = auth.getCurrentUser();
 
         settingsButton = findViewById(R.id.settingsButton);
         signOutButton = findViewById(R.id.signOutButton);
-        bookTaxiButton = findViewById(R.id.bookTaxiButton);
+        passengerInfoText = findViewById(R.id.passengerInfoText);
         locationButton = findViewById(R.id.locationButton);
+
+        passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("passengersGeoFire");
 
 
         signOutButton.setOnClickListener(new View.OnClickListener() {
@@ -161,11 +213,12 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         });
 
 
+        requestMethod();
+
+
         locationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-                locationButton.startAnimation(buttonClick);
                 LatLng ltlng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
 
                 CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(
@@ -174,6 +227,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
                 mMap.animateCamera(cameraUpdate);
             }
         });
+
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -189,6 +243,75 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         buildLocationSettingsRequest();
 
         startLocationUpdates();
+
+    }
+
+
+    public void requestMethod() {
+
+        passengerInfoText.setText("No orders yet");
+        //------------------------------ booleanPassengerLocation
+        booleanPassengerValue = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("booleanPassengerLocation");
+
+
+        booleanPassengerValue.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // This method is called once with the initial value and again
+                // whenever data at this location is updated.
+                if (dataSnapshot.exists()) {
+                    boolean value = dataSnapshot.getValue(Boolean.class);
+                    if (value == true) {
+
+                        requestFromPassenger = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                                .child("requestFromPassenger");
+
+                        AlertDialog.Builder builder = new AlertDialog.Builder(DriverMapsActivity.this);
+                        builder.setMessage("Do you want to accept the order now?")
+                                .setCancelable(true)
+                                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                    public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+
+                                        // This method is called once with the initial value and again
+                                        // whenever data at this location is updated.
+
+
+                                        requestFromPassenger.setValue(true);
+                                        passengerInfoText.setText("Getting your passenger...");
+                                        gettingNearestTaxi();
+                                        requestFromPassenger.removeValue();
+                                        //booleanPassengerValue.removeValue();
+
+                                        dialog.dismiss();
+
+                                    }
+                                })
+                                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                    public void onClick(final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                                        //requestFromPassenger.removeValue();
+                                        requestFromPassenger.setValue(false);
+
+                                        dialog.cancel();
+
+                                    }
+                                });
+                        final AlertDialog alert = builder.create();
+                        alert.show();
+                        // return false;
+                    }
+                }
+
+            }
+
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+
 
     }
 
@@ -256,6 +379,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
 
         });
+
 
     }
 
@@ -349,22 +473,181 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     }
 
 
+    private void gettingNearestTaxi() {
+
+
+        GeoFire geoFire = new GeoFire(passengersGeoFire);
+        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(
+                currentLocation.getLatitude(),
+                currentLocation.getLongitude()
+        ), searchRadius);
+
+        geoQuery.removeAllListeners();
+
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, GeoLocation location) {
+
+                if (!isDriverFound) {
+
+                    isDriverFound = true;
+                    nearestDriverId = key;
+
+                    getNearestDriverLocation();
+
+                }
+
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+
+                if (!isDriverFound) {
+
+                    searchRadius++;
+                    gettingNearestTaxi();
+
+                }
+
+            }
+
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+
+            }
+        });
+
+//        booleanPassengerValue = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+//                .child("booleanPassengerLocation");
+//        booleanPassengerValue.removeValue();
+    }
+
+    private void getNearestDriverLocation() {
+
+        passengerInfoText.setText("Getting your driver location...");
+
+        nearestDriverLocation = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
+                .child("passengersGeoFire").child(nearestDriverId).child("l");
+
+        nearestDriverLocation.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                if (dataSnapshot.exists()) {
+
+                    List<Object> driverLocationParameters =
+                            (List<Object>) dataSnapshot.getValue();
+
+                    double latitude = 0;
+                    double longitude = 0;
+                    String res1 = "";
+                    String res2 = "";
+
+                    if (driverLocationParameters.get(0) != null) {
+
+                        latitude = Double.parseDouble(
+                                driverLocationParameters.get(0).toString()
+                        );
+                        res1 = driverLocationParameters.get(0).toString();
+
+                    }
+
+                    if (driverLocationParameters.get(1) != null) {
+
+                        longitude = Double.parseDouble(
+                                driverLocationParameters.get(1).toString()
+                        );
+                        res2 = driverLocationParameters.get(1).toString();
+
+                    }
+
+                    LatLng driverLatLng = new LatLng(latitude, longitude);
+
+                    if (driverMarker != null) {
+                        driverMarker.remove();
+                    }
+
+                    Location driverLocation = new Location("");
+                    driverLocation.setLatitude(latitude);
+                    driverLocation.setLongitude(longitude);
+
+                    float distanceToDriver =
+                            driverLocation.distanceTo(currentLocation);
+
+                    float distunceResult = distanceToDriver / 1000;
+                    String kmResult = NumberFormat.getNumberInstance(Locale.US).format(distunceResult);
+
+
+                    passengerInfoText.setText("Distance to passenger: " +
+                            kmResult + " km");
+
+
+                    driverMarker = mMap.addMarker(
+                            new MarkerOptions().position(driverLatLng)
+                                    .title("Your passenger is here")
+                    );
+
+//-----------------------------------------------------------------------------------------
+
+                    if (currentLocation != null) {
+
+                        LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
+                                currentLocation.getLongitude());
+
+                        st1 = String.valueOf(currentLocation.getLatitude());
+                        st2 = String.valueOf(currentLocation.getLongitude());
+
+                        dest = driverLatLng;
+                        origion = passengerLocation;
+                        st3 = res1;
+                        st4 = res2;
+
+                        getDirection(st1 + "," + st2, st3 + "," + st4);
+
+                    }
+
+//-----------------------------------------------------------------------------------------
+
+                }
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
+    }
+
     private void signOutPassenger() {
 
         String passengerUserId = currentUser.getUid();
-
-        DatabaseReference drivers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
+        DatabaseReference passengers = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
                 .getReference()
                 .child("drivers");
-        DatabaseReference driversGeoFires = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
+
+        DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/")
                 .getReference()
                 .child("driversGeoFires");
 
-        drivers.removeValue();
-        driversGeoFires.removeValue();
+
+        passengers.removeValue();
+        passengersGeoFire.removeValue();
+
 
         Intent intent = new Intent(DriverMapsActivity.this,
-                ChooseModeActivity.class);
+                Choose_2_layout.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                 Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
@@ -386,25 +669,23 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-
-        mMap.setOnInfoWindowClickListener(this);
-
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        mMap.setPadding(30, 30, 30, 140);
+        mMap.setPadding(30, 30, 45, 305);
         mMap.getUiSettings().setMyLocationButtonEnabled(true);
         mMap.getUiSettings().setMapToolbarEnabled(true);
         //mMap.getUiSettings().setCompassEnabled(true);
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setRotateGesturesEnabled(false);
 
+        mMap.setOnMarkerClickListener((GoogleMap.OnMarkerClickListener) this);
 
         if (currentLocation != null) {
 
             // Add a marker in Sydney and move the camera
             LatLng driverLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions().position(driverLocation).title("Driver location"));
+            mMap.addMarker(new MarkerOptions().position(driverLocation).title("Passengers location"));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(driverLocation));
         }
 
@@ -412,26 +693,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
             getMyLocation();
         }
     }
-
-    @Override
-    public void onInfoWindowClick(@NonNull Marker marker) {
-
-
-
-        if (deleteCount == 0) {
-            Toast.makeText(this, "You want remove this marker?, please click again", Toast.LENGTH_LONG).show();
-            deleteCount++;
-
-        } else {
-            //marker.remove();
-            Toast.makeText(this, "You remove this marker!", Toast.LENGTH_LONG).show();
-            deleteCount--;
-
-        }
-
-
-    }
-
 
     private void stopLocationUpdates() {
 
@@ -450,8 +711,9 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
     }
 
-
     private void startLocationUpdates() {
+
+        isLocationUpdatesActive = true;
 
 
         settingsClient.checkLocationSettings(locationSettingsRequest)
@@ -586,22 +848,31 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
     }
 
-
     private void updateLocationUi() {
-
 
         if (currentLocation != null) {
 
-            mMap.clear();
 
             LatLng passengerLocation = new LatLng(currentLocation.getLatitude(),
                     currentLocation.getLongitude());
+            //   mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
+            //    mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
 
 
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation));
-            // mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
+            mSelectedMarker = mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Driver location"));
+            mTripMarkers.add(mSelectedMarker);
 
-            mMap.addMarker(new MarkerOptions().position(passengerLocation).title("Driver location"));
+
+            for (Marker marker : mTripMarkers) {
+                if (marker != null) {
+                    testMarker = marker;
+                }
+
+//                else {
+//                    testMarker.remove();
+//                }
+            }
+
 
             String passengerUserId = currentUser.getUid();
             DatabaseReference passengersGeoFire = FirebaseDatabase.getInstance("https://taxiapp-37fd1-default-rtdb.europe-west1.firebasedatabase.app/").getReference()
@@ -616,7 +887,6 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
         }
 
     }
-
 
     private void buildLocationRequest() {
 
@@ -744,6 +1014,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
                         polylineOptions.addAll(polylinelist);
                         mMap.addPolyline(polylineOptions);
                         LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
                         builder.include(origion);
                         builder.include(dest);
                         //  mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(),
@@ -792,4 +1063,76 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
     }
 
 
+//-----------------------------------------------------------------------------------------------------
+
+
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+
+    }
+
+    private void resetSelectedMarker() {
+        if (mSelectedMarker != null) {
+            mSelectedMarker.setVisible(false);
+            mSelectedMarker = null;
+            removeTripMarkers();
+        }
+    }
+
+    private void removeTripMarkers() {
+        for (Marker marker : mTripMarkers) {
+            marker.remove();
+        }
+    }
+
+
+    @Override
+    public boolean onMarkerClick(@NonNull Marker marker) {
+
+
+        if (countClick == 0) {
+
+            marker.setTitle(marker.getTitle());
+            marker.showInfoWindow();
+            Toast.makeText(getApplicationContext(), "If you want to delete this marker, " + "\n" +
+                    "please click on the marker again.", Toast.LENGTH_LONG).show();
+            countClick++;
+
+        } else {
+
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(DriverMapsActivity.this);
+            builder.setMessage("Do you want to delete this marker?")
+                    .setCancelable(true)
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            resetSelectedMarker();
+
+                            dialog.dismiss();
+
+                            Toast toast = Toast.makeText(getApplicationContext(), "Marker removed.", Toast.LENGTH_LONG);
+                            toast.setGravity(Gravity.TOP | Gravity.CENTER, 20, 20);
+                            toast.show();
+                            countClick--;
+                        }
+                    })
+                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        public void onClick(final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            dialog.cancel();
+                            countClick--;
+                        }
+                    });
+            final AlertDialog alert = builder.create();
+            alert.show();
+            // return false;
+            return true;
+
+        }
+
+        return true;
+    }
+
 }
+
+
+//-----------------------------------------------------------------------------------------------------
