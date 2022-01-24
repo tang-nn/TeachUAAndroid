@@ -647,7 +647,7 @@ public class DriverMapsActivity extends FragmentActivity implements OnMapReadyCa
 
 
         Intent intent = new Intent(DriverMapsActivity.this,
-                Choose_2_layout.class);
+                DriverSignInActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                 Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

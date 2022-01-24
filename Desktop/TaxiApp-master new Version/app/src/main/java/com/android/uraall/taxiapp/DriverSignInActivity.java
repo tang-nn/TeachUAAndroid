@@ -1,9 +1,13 @@
 package com.android.uraall.taxiapp;
 
 import android.content.Intent;
+
 import androidx.annotation.NonNull;
+
 import com.google.android.material.textfield.TextInputLayout;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -26,8 +30,8 @@ public class DriverSignInActivity extends AppCompatActivity {
     private TextInputLayout textInputPassword;
     private TextInputLayout textInputConfirmPassword;
 
-    private Button loginSignUpButton;
-    private TextView toggleLoginSignUpTextView;
+    private Button SignUpInDriver;
+    private Button buttonTapToLoginInDriver;
 
     private boolean isLoginModeActive;
 
@@ -50,8 +54,8 @@ public class DriverSignInActivity extends AppCompatActivity {
         textInputPassword = findViewById(R.id.textInputPassword);
         textInputConfirmPassword = findViewById(R.id.textInputConfirmPassword);
 
-        loginSignUpButton = findViewById(R.id.loginSignUpButton);
-        toggleLoginSignUpTextView = findViewById(R.id.toggleLoginSignUpTextView);
+        SignUpInDriver = findViewById(R.id.signUpInDriver);
+        buttonTapToLoginInDriver = findViewById(R.id.buttonTapToLoginInDriver);
 
 
     }
@@ -198,20 +202,19 @@ public class DriverSignInActivity extends AppCompatActivity {
         }
 
 
-
     }
 
     public void toggleLoginSignUp(View view) {
 
         if (isLoginModeActive) {
             isLoginModeActive = false;
-            loginSignUpButton.setText("Sign Up");
-            toggleLoginSignUpTextView.setText("Or, log in");
+            SignUpInDriver.setText("Sign Up");
+            buttonTapToLoginInDriver.setText("Or, log in");
             textInputConfirmPassword.setVisibility(View.VISIBLE);
         } else {
             isLoginModeActive = true;
-            loginSignUpButton.setText("Log In");
-            toggleLoginSignUpTextView.setText("Or, sign up");
+            SignUpInDriver.setText("Log In");
+            buttonTapToLoginInDriver.setText("Or, sign up");
             textInputConfirmPassword.setVisibility(View.GONE);
         }
 

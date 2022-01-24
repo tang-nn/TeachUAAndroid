@@ -27,8 +27,8 @@ public class PassengerSignInActivity extends AppCompatActivity {
     private TextInputLayout textInputPassword;
     private TextInputLayout textInputConfirmPassword;
 
-    private Button loginSignUpButton;
-    private TextView toggleLoginSignUpTextView;
+    private Button signUpInDriver;
+    private Button buttonTapToLoginInDriver;
 
     private boolean isLoginModeActive;
 
@@ -55,8 +55,8 @@ public class PassengerSignInActivity extends AppCompatActivity {
         textInputPassword = findViewById(R.id.textInputPassword);
         textInputConfirmPassword = findViewById(R.id.textInputConfirmPassword);
 
-        loginSignUpButton = findViewById(R.id.loginSignUpButton);
-        toggleLoginSignUpTextView = findViewById(R.id.toggleLoginSignUpTextView);
+        signUpInDriver = findViewById(R.id.signUpInDriver);
+        buttonTapToLoginInDriver = findViewById(R.id.buttonTapToLoginInDriver);
 
 
     }
@@ -210,13 +210,13 @@ public class PassengerSignInActivity extends AppCompatActivity {
 
         if (isLoginModeActive) {
             isLoginModeActive = false;
-            loginSignUpButton.setText("Sign Up");
-            toggleLoginSignUpTextView.setText("Or, log in");
+            signUpInDriver.setText("Sign Up");
+            buttonTapToLoginInDriver.setText("Or, log in");
             textInputConfirmPassword.setVisibility(View.VISIBLE);
         } else {
             isLoginModeActive = true;
-            loginSignUpButton.setText("Log In");
-            toggleLoginSignUpTextView.setText("Or, sign up");
+            signUpInDriver.setText("Log In");
+            buttonTapToLoginInDriver.setText("Or, sign up");
             textInputConfirmPassword.setVisibility(View.GONE);
         }
 
