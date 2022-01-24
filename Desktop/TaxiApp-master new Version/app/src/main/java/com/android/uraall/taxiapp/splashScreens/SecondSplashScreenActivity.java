@@ -1,35 +1,31 @@
-package com.android.uraall.taxiapp;
+package com.android.uraall.taxiapp.splashScreens;
 
 import android.content.Intent;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import android.os.Bundle;
-import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
+import com.android.uraall.taxiapp.ChooseModeActivity;
+import com.android.uraall.taxiapp.R;
 
-public class SplashScreenActivity extends AppCompatActivity {
 
+public class SecondSplashScreenActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_splash_screen);
+        setContentView(R.layout.activity_second_splash_screen);
 
         Thread thread = new Thread() {
             @Override
             public void run() {
                 try {
 
-                    sleep(4000);
+                    sleep(3000);
 
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
                     startActivity(new Intent(
-                            SplashScreenActivity.this,
+                            SecondSplashScreenActivity.this,
                             ChooseModeActivity.class));
                 }
             }
@@ -39,12 +35,11 @@ public class SplashScreenActivity extends AppCompatActivity {
     }
 
 
-
-
-
     @Override
     protected void onPause() {
         super.onPause();
         finish();
     }
+
+
 }

@@ -1,18 +1,17 @@
-package com.android.uraall.taxiapp;
-
-import android.content.Intent;
+package com.android.uraall.taxiapp.passenger;
 
 import androidx.annotation.NonNull;
 
+import com.android.uraall.taxiapp.R;
 import com.google.android.material.textfield.TextInputLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -21,42 +20,38 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
-public class DriverSignInActivity extends AppCompatActivity {
+public class PassengerSignInActivity extends AppCompatActivity {
 
-    private static final String TAG = "DriverSignInActivity";
+    private static final String TAG = "PassengerSignInActivity";
 
+    private FirebaseAuth auth;
     private TextInputLayout textInputEmail;
     private TextInputLayout textInputName;
     private TextInputLayout textInputPassword;
     private TextInputLayout textInputConfirmPassword;
-
-    private Button SignUpInDriver;
+    private Button signUpInDriver;
     private Button buttonTapToLoginInDriver;
-
     private boolean isLoginModeActive;
 
-    private FirebaseAuth auth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_driver_sign_in);
+        setContentView(R.layout.activity_passenger_sign_in);
 
         auth = FirebaseAuth.getInstance();
 
         if (auth.getCurrentUser() != null) {
-            startActivity(new Intent(DriverSignInActivity.this,
-                    DriverMapsActivity.class));
+            startActivity(new Intent(PassengerSignInActivity.this,
+                    com.android.uraall.taxiapp.passenger.PassengerMapsActivity.class));
         }
 
         textInputEmail = findViewById(R.id.textInputEmail);
         textInputName = findViewById(R.id.textInputName);
         textInputPassword = findViewById(R.id.textInputPassword);
         textInputConfirmPassword = findViewById(R.id.textInputConfirmPassword);
-
-        SignUpInDriver = findViewById(R.id.signUpInDriver);
+        signUpInDriver = findViewById(R.id.signUpInDriver);
         buttonTapToLoginInDriver = findViewById(R.id.buttonTapToLoginInDriver);
-
 
     }
 
@@ -147,19 +142,18 @@ public class DriverSignInActivity extends AppCompatActivity {
                                         Log.d(TAG, "signInWithEmail:success");
                                         FirebaseUser user = auth.getCurrentUser();
                                         startActivity(new Intent(
-                                                DriverSignInActivity.this,
-                                                DriverMapsActivity.class
+                                                PassengerSignInActivity.this,
+                                                com.android.uraall.taxiapp.passenger.PassengerMapsActivity.class
                                         ));
 
                                         //updateUI(user);
                                     } else {
                                         // If sign in fails, display a message to the user.
                                         Log.w(TAG, "signInWithEmail:failure", task.getException());
-                                        Toast.makeText(DriverSignInActivity.this, "Authentication failed.",
+                                        Toast.makeText(PassengerSignInActivity.this, "Authentication failed.",
                                                 Toast.LENGTH_SHORT).show();
                                         //updateUI(null);
                                     }
-
                                     // ...
                                 }
                             });
@@ -182,38 +176,35 @@ public class DriverSignInActivity extends AppCompatActivity {
                                         Log.d(TAG, "createUserWithEmail:success");
                                         FirebaseUser user = auth.getCurrentUser();
                                         startActivity(new Intent(
-                                                DriverSignInActivity.this,
-                                                DriverMapsActivity.class
+                                                PassengerSignInActivity.this,
+                                                com.android.uraall.taxiapp.passenger.PassengerMapsActivity.class
                                         ));
                                         //updateUI(user);
                                     } else {
                                         // If sign in fails, display a message to the user.
                                         Log.w(TAG, "createUserWithEmail:failure",
                                                 task.getException());
-                                        Toast.makeText(DriverSignInActivity.this,
+                                        Toast.makeText(PassengerSignInActivity.this,
                                                 "Authentication failed.",
                                                 Toast.LENGTH_SHORT).show();
                                         //updateUI(null);
                                     }
-
                                     // ...
                                 }
                             });
         }
-
-
     }
 
     public void toggleLoginSignUp(View view) {
 
         if (isLoginModeActive) {
             isLoginModeActive = false;
-            SignUpInDriver.setText("Sign Up");
+            signUpInDriver.setText("Sign Up");
             buttonTapToLoginInDriver.setText("Or, log in");
             textInputConfirmPassword.setVisibility(View.VISIBLE);
         } else {
             isLoginModeActive = true;
-            SignUpInDriver.setText("Log In");
+            signUpInDriver.setText("Log In");
             buttonTapToLoginInDriver.setText("Or, sign up");
             textInputConfirmPassword.setVisibility(View.GONE);
         }

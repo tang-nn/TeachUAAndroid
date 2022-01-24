@@ -17,7 +17,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".Choose_2_layout"
+            android:name=".ChooseModeActivity"
             android:exported="false" />
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
@@ -37,16 +37,16 @@
         <!-- android:name="com.google.android.geo.API_KEY" -->
         <!-- android:value=  "@string/google_maps_key" /> -->
         <activity
-            android:name=".DriverMapsActivity"
+            android:name=".driver.DriverMapsActivity"
             android:label="@string/title_activity_driver_maps" />
         <activity
-            android:name=".PassengerMapsActivity"
+            android:name=".passenger.PassengerMapsActivity"
             android:label="@string/title_activity_passenger_maps" />
-        <activity android:name=".DriverSignInActivity" />
-        <activity android:name=".PassengerSignInActivity" />
-        <activity android:name=".ChooseModeActivity" />
+        <activity android:name=".driver.DriverSignInActivity" />
+        <activity android:name=".passenger.PassengerSignInActivity" />
+        <activity android:name=".splashScreens.SecondSplashScreenActivity" />
         <activity
-            android:name=".SplashScreenActivity"
+            android:name=".splashScreens.FirstSplashScreenActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -1,8 +1,6 @@
-package com.android.uraall.taxiapp;
-
+package com.android.uraall.taxiapp.findRouteClasses;
 
 import io.reactivex.Single;
-
 import retrofit2.http.GET;
 import retrofit2.http.Query;
 

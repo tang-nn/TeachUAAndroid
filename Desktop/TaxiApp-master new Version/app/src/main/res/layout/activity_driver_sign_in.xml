@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/colorBackgroundActivity"
     android:orientation="vertical"
-    tools:context=".DriverSignInActivity">
+    tools:context=".driver.DriverMapsActivity">
 
 
     <LinearLayout
